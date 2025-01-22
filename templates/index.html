@@ -1,0 +1,26 @@
+<!-- make full html and form to add stream with stream_key and video file add some style using bootstrap-->
+ <!DOCTYPE html>
+ <html lang="en">
+ <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Youtube Live Manager</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+ </head>
+ <body>
+    <h1>Youtube Live Manager</h1>
+    <form action="{{ url_for('add_stream') }}" method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="stream_key">Stream Key</label>
+            <input type="text" class="form-control" id="stream_key" name="stream_key" required>
+        </div>
+        <div class="form-group">
+            <label for="video_file">Video File</label>
+            <input type="file" class="form-control-file" id="video_file" name="video_file" required>
+        </div>
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">Add Stream</button>
+        </div>
+    </form>
+ </body>
+ </html>
