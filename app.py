@@ -1,47 +1,90 @@
-# import necessary libraries like Flask, request, jsonify, flash, redirect, url_for, render_template, subprocess
-from flask import Flask, request, jsonify, flash, redirect, url_for, render_template
-import subprocess, re
+from flask import Flask, request, flash, redirect, url_for, render_template
+import subprocess
+import os
+import time
+from werkzeug.utils import secure_filename
 
-# declare a Flask app
 app = Flask(__name__)
-# set secret key for the app
-app.secret = 'kajslasjkj*&*&^*YJKAHSKLJAHSKJNAKSHA78687687yjkhkshdksjhdkjh'
+app.secret_key = "super_secret_stream_key_123"
 
-# index route to render index.html
-@app.route('/')
+UPLOAD_FOLDER = "static/videos"
+ALLOWED_EXTENSIONS = {"mp4", "avi", "mkv", "mov"}
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route("/")
 def index():
-    return render_template('index.html')
-# add_stream route to add stream_key and video
-@app.route('/add_stream', methods=['POST'])
-def add_stream():
-    if request.method == 'POST':
-        # get stream_key and video from form
-        stream_key = request.form['stream_key']
-        video = request.files['video_file']
-        
-        # filter video format
-        allowed_video_format = ['mp4', 'avi', 'mkv', 'mov']
-        if video.filename.split('.')[-1] not in allowed_video_format:
-            flash('Invalid video format. Only mp4, avi, mkv, mov are allowed')
-            return redirect(url_for('index'))
-        
-        # save video into static/videos
-        file_path = f'static/videos/{video.filename}'
-        # modify video path to save video in static/videos folder and remove all invalid characters with _
-        file_path = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', file_path)
-        video.save(file_path)
-        # make sure that file is saved wait until it saved
-        # before running ffmpeg command
-        import time
-        time.sleep(2)
-        # run ffmpeg command to start streaming
-        # ffmpeg -re -i video_path -c copy -f flv rtmp://localhost/live/stream_name
-        # youtube_rtmp_url = f'rtmp://a.rtmp.youtube.com/live2/{stream_key}'
-        command = f'ffmpeg -re -i {file_path} -c copy -f flv rtmp://a.rtmp.youtube.com/live2/{stream_key}'
-        # ffmpeg command to stream video to youtube
-        subprocess.Popen(command, shell=True)
-        return redirect(url_for('index'))
+    return render_template("index.html")
 
-# run the app
-if __name__ == '__main__':
+
+@app.route("/add_stream", methods=["POST"])
+def add_stream():
+    print("POST request received")
+    if "video_file" not in request.files:
+        flash("No file uploaded")
+        return redirect(url_for("index"))
+
+    video = request.files["video_file"]
+    print("Received file:", video.filename)
+    stream_key = request.form.get("stream_key")
+
+    if video.filename == "":
+        flash("No selected file")
+        return redirect(url_for("index"))
+
+    if not allowed_file(video.filename):
+        flash("Invalid video format. Only mp4, avi, mkv, mov allowed")
+        return redirect(url_for("index"))
+
+    # sanitize filename
+    filename = secure_filename(video.filename)
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+
+    print("Saving file to:", file_path)
+
+    video.save(file_path)
+
+    if not os.path.exists(file_path):
+        flash("Video failed to save")
+        return redirect(url_for("index"))
+
+    print("Video saved successfully")
+
+    time.sleep(1)
+
+    # FFmpeg command
+    command = [
+        "ffmpeg",
+        "-re",
+        "-stream_loop", "-1",
+        "-i", file_path,
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-maxrate", "3000k",
+        "-bufsize", "6000k",
+        "-pix_fmt", "yuv420p",
+        "-g", "50",
+        "-c:a", "aac",
+        "-b:a", "160k",
+        "-f", "flv",
+        f"rtmp://a.rtmp.youtube.com/live2/{stream_key}",
+    ]
+
+    print("Starting FFmpeg stream...")
+    print(" ".join(command))
+
+    # start streaming without blocking flask
+    subprocess.Popen(command)
+
+    flash("Stream started successfully")
+
+    return redirect(url_for("index"))
+
+
+if __name__ == "__main__":
     app.run(debug=True)
