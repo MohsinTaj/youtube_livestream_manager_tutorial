@@ -84,7 +84,44 @@ def add_stream():
     flash("Stream started successfully")
 
     return redirect(url_for("index"))
+@app.route("/live_stream", methods=["POST"])
+def live_stream():
 
+    stream_key = request.form.get("stream_key")
 
+    if not stream_key:
+        flash("Stream key is required")
+        return redirect(url_for("index"))
+
+    command = [
+        "ffmpeg",
+
+        "-f", "v4l2",
+        "-framerate", "24",
+        "-video_size", "640x480",
+        "-i", "/dev/video0",
+
+        "-f", "lavfi",
+        "-i", "anullsrc",
+
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-pix_fmt", "yuv420p",
+
+        "-c:a", "aac",
+
+        "-f", "flv",
+        f"rtmp://a.rtmp.youtube.com/live2/{stream_key}",
+    ]
+
+    print("Starting LIVE webcam stream...")
+    print(" ".join(command))
+
+    subprocess.Popen(command)
+
+    flash("Live webcam stream started!")
+
+    return redirect(url_for("index"))
+    
 if __name__ == "__main__":
     app.run(debug=True)

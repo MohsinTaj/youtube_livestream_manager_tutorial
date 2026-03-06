@@ -1,0 +1,4 @@
+ffmpeg -f v4l2 -framerate 24 -video_size 640x480 -i /dev/video0 \
+-f lavfi -i anullsrc \
+-c:v libx264 -preset veryfast -pix_fmt yuv420p \
+-c:a aac -f flv rtmp://a.rtmp.youtube.com/live2/YOUR_STREAM_KEY
