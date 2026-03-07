@@ -1,8 +1,9 @@
-from flask import Flask, request, flash, redirect, url_for, render_template
+from flask import Flask, request, flash, redirect, url_for, render_template, Response
 import subprocess
 import os
 import time
 from werkzeug.utils import secure_filename
+import cv2
 
 app = Flask(__name__)
 app.secret_key = "super_secret_stream_key_123"
@@ -11,6 +12,18 @@ UPLOAD_FOLDER = "static/videos"
 ALLOWED_EXTENSIONS = {"mp4", "avi", "mkv", "mov"}
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+def generate_frames():
+    camera = cv2.VideoCapture(0)  # Use 0 for default webcam
+    while True:
+        success, frame = camera.read()
+        if not success:
+            break
+        ret, buffer = cv2.imencode('.jpg', frame)
+        frame = buffer.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+    camera.release()
+
 
 
 def allowed_file(filename):
@@ -123,5 +136,10 @@ def live_stream():
 
     return redirect(url_for("index"))
     
+
+@app.route('/webcam')
+def webcam_display():
+    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
 if __name__ == "__main__":
     app.run(debug=True)
